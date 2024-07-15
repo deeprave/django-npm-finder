@@ -6,7 +6,7 @@ import pytest
 from django.core.files.storage import FileSystemStorage
 from django.test.utils import override_settings
 
-from npm.finders import NpmFinder, get_files, npm_install
+from django_npm.finders import NpmFinder, get_files, npm_install
 
 from .util import configure_settings
 
