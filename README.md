@@ -3,7 +3,8 @@
 Want to use npm modules in your django project without vendoring them? django-npm serves as a wrapper around the npm/yarn/pnpm cli and provides a staticfiles
 finder that provides integration of your installed node_modules during development and hooks to provide selectively `collectstatic` functionality for production.
 
-`django-npm-finder` is a fork of kevin1024's `[django-npm](https://github.com/keven1024/django-npm)` module with modern packaging, caching and options to use npm, yarn or pnpm.
+`django-npm-finder` is a fork of kevin1024's [django-npm](https://github.com/keven1024/django-npm) module with modern packaging, dding caching and options to use npm, yarn or pnpm.
+Extensive tests were added with pytest support.
 
 ## Installation
 
