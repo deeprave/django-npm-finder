@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "django-npm-finder"
-version = "1.0.0"
+version = "1.0.1"
 description = 'A django staticfiles finder that supporting npm/yarn/pnpm'
 authors = [
     "David Nugent <davidn@uniquode.io>",
