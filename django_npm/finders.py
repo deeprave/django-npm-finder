@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+import contextlib
 import fnmatch
 import os
+import json
 import subprocess
 from functools import cache, lru_cache
 from pathlib import Path
+from typing import List, Dict, Union, Iterable, Optional
 
 from django.conf import settings
 from django.contrib.staticfiles.finders import FileSystemFinder
@@ -16,13 +19,94 @@ NPM_FILE_PATTERNS = "NPM_FILE_PATTERNS"
 NPM_IGNORE_PATTERNS = "NPM_IGNORE_PATTERNS"
 NPM_FINDER_USE_CACHE = "NPM_FINDER_USE_CACHE"
 
+DEFAULT_IGNORE_PATTERNS = (
+    ".*",
+    "*.coffee",
+    "*.es6",
+    "*.htm",
+    "*.html",
+    "*.json",
+    "*.less",
+    "*.litcoffee",
+    "*.lock",
+    "*.map",
+    "*.markdown",
+    "*.md",
+    "*.patch",
+    "*.php",
+    "*.rb",
+    "*.rst",
+    "*.scss",
+    "*.sh",
+    "*.styl",
+    "*.ts",
+    "*.txt",
+    "*.xml",
+    "*.yaml",
+    "*.yml",
+    "*bin*",
+    "*demo*",
+    "*docs*",
+    "*example*",
+    "*samples*",
+    "*test*",
+    "CHANGELOG*",
+    "CHANGES*",
+    "CONTRIBUTING*",
+    "COPYING*",
+    "Gemfile*",
+    "Gruntfile*",
+    "HISTORY*",
+    "LICENCE*",
+    "LICENSE*",
+    "Makefile*",
+    "NOTICE*",
+    "README*",
+    "bower_components",
+    "coffee",
+    "grunt",
+    "gulp",
+    "gulpfile.js",
+    "jspm_packages",
+    "less",
+    "license",
+    "node_modules",
+    "sass",
+    "scss",
+    "tasks",
+)
 
-def setting(setting_name, default=None):
+
+def get_setting(
+    setting_name: str, default: Union[bool, str, None] = None
+) -> Union[bool, str, Path, None]:
+    """
+    Get a Django setting by name, or return a default value if it doesn't exist.
+    :param setting_name: Name of the setting
+    :param default: default value if unset
+    :return: setting value or default
+    """
     return getattr(settings, setting_name, default)
 
 
+@lru_cache(maxsize=None)
+def get_npm_root_path() -> Path:
+    """
+    Get the root path for the node_modules directory.
+    If NPM_ROOT_PATH is unset, assume BASE_DIR.
+    :return: Resolved Path
+    """
+    if not (base_dir := get_setting(NPM_ROOT_PATH)):
+        base_dir = get_setting("BASE_DIR", ".")
+    return Path(base_dir).resolve()
+
+
 def npm_install():
-    npm = setting(NPM_EXECUTABLE_PATH) or "npm"
+    """
+    Run npm install in the node_modules directory.
+    :return: Return code of the process
+    """
+    npm = get_setting(NPM_EXECUTABLE_PATH) or "npm"
 
     prefix = (
         "--dir"
@@ -32,7 +116,7 @@ def npm_install():
         else "--prefix"
     )
 
-    command = [str(npm), "install", prefix, str(get_npm_root_path())]
+    command = [str(npm), "install", prefix, get_npm_root_path().as_posix()]
     print(" ".join(command))
     proc = subprocess.Popen(
         command,
@@ -41,14 +125,32 @@ def npm_install():
     return proc.wait()
 
 
-@cache
-def get_npm_root_path():
-    return setting(NPM_ROOT_PATH, ".")
+@lru_cache
+def get_package_patterns(node_modules_root: Union[str, Path]) -> Dict[str, List[str]]:
+    """
+    Get the package.json file from the node_modules directory and return the dependencies.
+    :param node_modules_root: Root path to the node_modules directory
+    :return:
+    """
+    package_json = Path(node_modules_root) / "package.json"
+    packages = {"*": ["*"]}
+    with contextlib.suppress(IOError):
+        with contextlib.suppress(json.JSONDecodeError):
+            with package_json.open() as f:
+                pkg_json = json.load(f)
+                if "dependencies" in pkg_json:
+                    packages = {pkg: ["*"] for pkg in pkg_json["dependencies"]}
+    return packages
 
 
-def flatten_patterns(patterns):
+def flatten_patterns(patterns: Dict[str, Iterable[str]]) -> List[str]:
+    """
+    Flatten a dictionary of patterns into a list of module/pattern strings.
+    :param patterns: Dictionary of module/pattern lists
+    :return: flattened list of module/pattern strings
+    """
     if patterns is None:
-        return None
+        return []
     return [
         os.path.join(module, module_pattern)
         for module, module_patterns in patterns.items()
@@ -57,17 +159,20 @@ def flatten_patterns(patterns):
 
 
 def get_files(
-    storage, match_patterns=None, ignore_patterns=None, find_pattern: str | None = None
+    storage,
+    match_patterns: Iterable[str] = None,
+    ignore_patterns: Iterable[str] = None,
+    find_pattern: str | bytes | None = None,
 ):
     if match_patterns is None:
         match_patterns = ["*"]
-    elif not isinstance(match_patterns, (list, tuple)):
+    elif not isinstance(match_patterns, Iterable):
         match_patterns = [match_patterns]
 
     root = Path(storage.base_location).resolve()
 
     if not ignore_patterns:
-        ignore_patterns = [".*"]
+        ignore_patterns = DEFAULT_IGNORE_PATTERNS
 
     def splitpath(path: str | Path):
         if path is not None:
@@ -82,7 +187,7 @@ def get_files(
 
     @cache
     def ignorelist() -> list:
-        return [splitpath(pattern) for pattern in ignore_patterns]
+        return [splitpath(patt) for patt in ignore_patterns]
 
     def ignored(relpath: Path):
         reldir, relname = splitpath(relpath)
@@ -93,14 +198,14 @@ def get_files(
         )
 
     @lru_cache(32767, False)
-    def rglob(topdir: Path, pattern: str):
-        patternpath, patternname = splitpath(pattern)
+    def rglob(topdir: Path, glob_pattern: Optional[str]):
+        patternpath, patternname = splitpath(glob_pattern or "*")
         for path in topdir.iterdir():
             relpath = path.relative_to(root)
             if not ignored(relpath):
                 # recurse subdirs
                 if path.is_dir():
-                    yield from rglob(path, pattern)
+                    yield from rglob(path, glob_pattern or "*")
                 elif path.is_file():
                     reldir, relname = splitpath(relpath)
                     # check that the file matches the filename pattern
@@ -109,29 +214,30 @@ def get_files(
                             # if we aren't finding, match on directory part as well
                             if not patternpath or fnmatch.fnmatch(reldir, patternpath):
                                 yield relpath
-                        # if we are finding, then ensure that the find path matches the relative one
+                        # if we're finding, then ensure that the find path matches the relative one
                         elif not findpath or reldir == findpath:
-                            # and the name is what we are looking for
+                            # and the name is what we're looking for
                             if fnmatch.fnmatch(relname, findname):
                                 yield relpath
-        pass
 
-    for match_pattern in match_patterns:
-        for path in rglob(root, match_pattern):
-            yield path
+    for pattern in match_patterns:
+        yield from rglob(root, pattern)
 
 
 class NpmFinder(FileSystemFinder):
     # noinspection PyMissingConstructor,PyUnusedLocal
     def __init__(self, *args, **kwargs):
         self.node_modules_path = get_npm_root_path()
-        self.destination = setting(NPM_STATIC_FILES_PREFIX, "")
-        self.cache_enabled = setting(NPM_FINDER_USE_CACHE, True)
-        self.ignore_patterns = setting(NPM_IGNORE_PATTERNS, None) or [".*"]
-        self.match_patterns = flatten_patterns(setting(NPM_FILE_PATTERNS, None)) or ["*"]
-        self.locations = [
-            (self.destination, os.path.join(self.node_modules_path, "node_modules"))
-        ]
+        self.destination = get_setting(NPM_STATIC_FILES_PREFIX, "")
+        self.cache_enabled = get_setting(NPM_FINDER_USE_CACHE, True)
+        self.ignore_patterns = (
+            get_setting(NPM_IGNORE_PATTERNS, None) or DEFAULT_IGNORE_PATTERNS
+        )
+        patterns = get_setting(NPM_FILE_PATTERNS, None) or get_package_patterns(
+            self.node_modules_path
+        )
+        self.match_patterns = flatten_patterns(patterns) or ["*"]
+        self.locations = [(self.destination, self.node_modules_path / "node_modules")]
 
         filesystem_storage = FileSystemStorage(location=self.locations[0][1])
         filesystem_storage.prefix = self.locations[0][0]
