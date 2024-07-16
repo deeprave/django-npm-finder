@@ -1,29 +1,12 @@
 # Changelog
-# v1.4.0
-- add pre-commit checks for quality improvement
-- add a "test" dependency group and move pytest there
-- revoke more python versions (now >= 3.10) due to use of PEP604 annotation syntax
-# v1.3.0
-- don't use pnpm by default, esp for testing when not available
-# v1.2.0
-- drop support for Python versions that contemporary Django no longer support
-- add pnpm support
-# v1.1.3
-- Fix get_files to return relative paths
-# v1.0.1
-- Convert build to use poetry
-- Use pathlib with glob matching instead of fnmatch for more flexibility
-# v1.0.0
-- Improve speed, separate `npm install` from the finder
-# v0.1.4
-- Fix bug with `NPM_EXECUTABLE_PATH` (thanks @yohanboniface)
-# v0.1.3
-- Actually fix destination bug
-# v0.1.2
-- Fix bug with destination prefix
-# v0.1.1
-- manage.py runserver bugfix
-# v0.1.0
-- Add `NPM_FILE_PATTERNS` setting
-# v0.0.1
-- initial release
+# v1.0.0 - 2024-07-16
+- Forked from the [original repo](https://github.com/kevin1024/django-npm)
+- Added a comprehensive list of default ignore patterns for npm files.
+- Introduced type annotations and docstrings for better code clarity and maintainability.
+- Implemented caching for the get_npm_root_path function.
+- Refactored get_package_patterns to dynamically fetch dependencies from package.json.
+- Updated get_files function to use default ignore patterns.
+- Improved NpmFinder class to use default ignore patterns and autoconfigure match patterns from package.json.
+- Updated README.md with detailed installation and configuration instructions.
+- Simplified and cleaned up tests in test_finder.py.
+- Removed outdated CONTRIBUTING.md file.

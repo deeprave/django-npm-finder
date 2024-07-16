@@ -52,7 +52,7 @@ def storage(npm_dir):
 def test_get_files_all(storage):
     files = list(get_files(storage, match_patterns=["*"]))
     assert len(files)
-    assert all(filename for filename in files)
+    assert all(files)
 
 
 def test_get_files_with_patterns(storage):
@@ -76,7 +76,7 @@ def test_finder_list_all(npm_dir):
     assert len(results)
     assert all(isinstance(result, tuple) for result in results)
     assert all(path for path, storage in results)
-    assert all(storage is not None for filename, storage in results)
+    assert all(store is not None for filename, store in results)
 
 
 def test_finder_list_in_module(npm_dir):
@@ -87,7 +87,7 @@ def test_finder_list_in_module(npm_dir):
         assert len(results)
         assert all(isinstance(result, tuple) for result in results)
         assert all(path for path, storage in results)
-        assert all(storage is not None for filename, storage in results)
+        assert all(store is not None for filename, store in results)
 
 
 def test_finder_list_files_in_module(npm_dir):
@@ -104,7 +104,7 @@ def test_finder_list_files_in_module(npm_dir):
         assert len(results)
         assert all(isinstance(result, tuple) for result in results)
         assert all(path for path, storage in results)
-        assert all(storage is not None for filename, storage in results)
+        assert all(store is not None for filename, store in results)
 
 
 def test_finder_find(npm_dir):
@@ -136,7 +136,7 @@ def test_finder_with_patterns_in_directory_component(npm_dir):
         NPM_STATIC_FILES_PREFIX="lib", NPM_FILE_PATTERNS={"mocha": ["*.js"]}
     ):
         f = NpmFinder()
-        file = f.find("lib/mocha/lib/test.js")
+        file = f.find("lib/mocha/lib/mocha.js")
         assert file
 
 
