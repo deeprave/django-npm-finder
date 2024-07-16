@@ -134,8 +134,9 @@ def get_package_patterns(node_modules_root: Union[str, Path]) -> Dict[str, List[
     """
     package_json = Path(node_modules_root) / "package.json"
     packages = {"*": ["*"]}
-    with contextlib.suppress(IOError):
-        with contextlib.suppress(json.JSONDecodeError):
+    with contextlib.suppress(IOError, json.JSONDecodeError):
+        with package_json.open() as f:
+            pkg_json = json.load(f)
             with package_json.open() as f:
                 pkg_json = json.load(f)
                 if "dependencies" in pkg_json:
