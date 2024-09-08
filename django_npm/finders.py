@@ -140,7 +140,7 @@ def get_package_patterns(node_modules_root: Union[str, Path]) -> Dict[str, List[
             with package_json.open() as f:
                 pkg_json = json.load(f)
                 if "dependencies" in pkg_json:
-                    packages = {pkg: ["*"] for pkg in pkg_json["dependencies"]}
+                    packages = {pkg: ["**"] for pkg in pkg_json["dependencies"]}
     return packages
 
 
