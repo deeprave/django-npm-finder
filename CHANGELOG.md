@@ -1,5 +1,10 @@
 # Changelog
-# v1.0.0 - 2024-07-16
+## v1.1.0 - 2024-09-08
+
+- Added "**" as pattern to match all files and directories when auto-importing npm dependencies from `project.json`.
+- Upgraded versions in poetry.lock to the latest compatible versions.
+
+## v1.0.0 - 2024-07-16
 - Forked from the [original repo](https://github.com/kevin1024/django-npm)
 - Added a comprehensive list of default ignore patterns for npm files.
 - Introduced type annotations and docstrings for better code clarity and maintainability.
