@@ -31,8 +31,7 @@ Documentation = "https://github.com/deeprave/django-npm-finder"
 [tool.ruff]
 
 
-# Development dependencies
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "ruff>=0.5.2",
     "pytest>=8.2.0",
