@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from npm.finders import npm_install
+from django_npm.finders import npm_install
 
 
 class Command(BaseCommand):
