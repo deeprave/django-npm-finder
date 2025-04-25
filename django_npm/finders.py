@@ -246,7 +246,7 @@ class NpmFinder(FileSystemFinder):
         self.cached_list = None
 
     # noinspection PyShadowingBuiltins
-    def find(self, path, all=False):
+    def find(self, path, **_kwargs):
         relpath = os.path.relpath(path, self.destination)
         for prefix, root in self.locations:
             storage = self.storages[root]

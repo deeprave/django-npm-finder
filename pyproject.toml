@@ -1,19 +1,15 @@
-[tool.poetry]
+[project]
 name = "django-npm-finder"
-version = "1.1.0"
-description = 'A django staticfiles finder that supporting npm/yarn/pnpm'
+version = "1.2.0"
+description = "A django staticfiles finder that supporting npm/yarn/pnpm"
 authors = [
-    "David Nugent <davidn@uniquode.io>",
-    "Kevin McCarthy <e@kevinmccarthy.org>",
+    {name = "David Nugent", email = "davidn@uniquode.io"},
+    {name = "Kevin McCarthy", email = "e@kevinmccarthy.org"},
 ]
-license = "MIT"
+license = {text = "MIT"}
 readme = "README.md"
-homepage = "https://github.com/deeprave/django-npm-finder"
-repository = "https://github.com/deeprave/django-npm-finder"
-documentation = "https://github.com/deeprave/django-npm-finder"
-packages = [
-    { include = "django_npm" }
-]
+requires-python = ">=3.10,<4.0"
+keywords = ["django", "npm", "finder", "staticfiles"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -23,24 +19,28 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-keywords=[
-    "django",
-    "npm",
-    "finder",
-    "staticfiles",
+dependencies = [
+    "Django>=4.2",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-Django = ">=4.2"
+[project.urls]
+Homepage = "https://github.com/deeprave/django-npm-finder"
+Repository = "https://github.com/deeprave/django-npm-finder"
+Documentation = "https://github.com/deeprave/django-npm-finder"
 
-[tool.poetry.dev-dependencies]
-ruff = "^0.5.2"
-pre-commit = "^3.3.3"
+[tool.ruff]
 
-[tool.poetry.group.test.dependencies]
-pytest = "^8.2.0"
+
+# Development dependencies
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.5.2",
+    "pytest>=8.2.0",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["flit-core"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "django_npm"
