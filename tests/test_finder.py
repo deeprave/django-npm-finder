@@ -89,6 +89,12 @@ def test_flatten_patterns_uses_posix_paths():
     ]
 
 
+def test_flatten_patterns_scoped_package_uses_recursive_match():
+    assert flatten_patterns({"@fortawesome/fontawesome-free": ["**"]}) == [
+        "@fortawesome/fontawesome-free/**"
+    ]
+
+
 def test_get_files_reuses_cached_directory_walk(storage, monkeypatch):
     calls = Counter()
     original_iterdir = Path.iterdir
@@ -110,6 +116,30 @@ def test_get_files_reuses_cached_directory_walk(storage, monkeypatch):
     assert first == second
     assert first_counts
     assert dict(calls) == first_counts
+
+
+def test_get_files_scoped_package_recursive_pattern(tmp_path):
+    package_root = tmp_path / "node_modules" / "@fortawesome" / "fontawesome-free"
+    (package_root / "css").mkdir(parents=True)
+    (package_root / "js").mkdir(parents=True)
+    (package_root / "attribution.js").write_text("")
+    (package_root / "css" / "all.css").write_text("")
+    (package_root / "js" / "all.js").write_text("")
+    storage = FileSystemStorage(location=str(tmp_path / "node_modules"))
+
+    files = list(
+        get_files(
+            storage,
+            match_patterns=["@fortawesome/fontawesome-free/**"],
+            ignore_patterns=[],
+        )
+    )
+    assert any(
+        path.as_posix() == "@fortawesome/fontawesome-free/attribution.js"
+        for path in files
+    )
+    assert any("css/all.css" in path.as_posix() for path in files)
+    assert any("js/all.js" in path.as_posix() for path in files)
 
 
 def test_finder_list_all(npm_dir):
