@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from collections import Counter
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -6,6 +7,7 @@ import pytest
 from django.core.files.storage import FileSystemStorage
 from django.test.utils import override_settings
 
+from django_npm import finders
 from django_npm.finders import NpmFinder, get_files, npm_install
 
 from .util import configure_settings
@@ -67,6 +69,29 @@ def test_get_files_with_patterns(storage):
     assert all(Path(path).suffix in (".js", ".css") for path in files)
 
     assert files != files_all
+
+
+def test_get_files_reuses_cached_directory_walk(storage, monkeypatch):
+    calls = Counter()
+    original_iterdir = Path.iterdir
+    root = Path(storage.base_location).resolve()
+    finders._ignorelist.cache_clear()
+    finders._rglob.cache_clear()
+
+    def counting_iterdir(self):
+        if root == self.resolve() or root in self.resolve().parents:
+            calls[self.resolve()] += 1
+        yield from original_iterdir(self)
+
+    monkeypatch.setattr(Path, "iterdir", counting_iterdir)
+
+    first = list(get_files(storage, match_patterns=["mocha/*.js"]))
+    first_counts = dict(calls)
+    second = list(get_files(storage, match_patterns=["mocha/*.js"]))
+
+    assert first == second
+    assert first_counts
+    assert dict(calls) == first_counts
 
 
 def test_finder_list_all(npm_dir):

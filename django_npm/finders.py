@@ -77,6 +77,59 @@ DEFAULT_IGNORE_PATTERNS = (
 )
 
 
+def splitpath(path: str | Path):
+    if path is not None:
+        path = str(path)
+        p = path.rsplit(os.sep, maxsplit=1)
+        return p if len(p) == 2 else (p[0], "*") if path.endswith(os.sep) else ("", p[0])
+    return "", ""
+
+
+@cache
+def _ignorelist(ignore_patterns: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
+    return tuple(splitpath(patt) for patt in ignore_patterns)
+
+
+def _ignored(relpath: Path, ignore_patterns: tuple[str, ...]) -> bool:
+    reldir, relname = splitpath(relpath)
+    return any(
+        fnmatch.fnmatch(relname, ignorefile)
+        and (not ignorepath or fnmatch.fnmatch(reldir, ignorepath))
+        for (ignorepath, ignorefile) in _ignorelist(ignore_patterns)
+    )
+
+
+@lru_cache(maxsize=32767)
+def _rglob(
+    root: Path,
+    topdir: Path,
+    glob_pattern: Optional[str],
+    find_pattern: str | bytes | None,
+    ignore_patterns: tuple[str, ...],
+) -> tuple[Path, ...]:
+    results = []
+    patternpath, patternname = splitpath(glob_pattern or "*")
+    findpath, findname = splitpath(find_pattern)
+    for path in topdir.iterdir():
+        relpath = path.relative_to(root)
+        if _ignored(relpath, ignore_patterns):
+            continue
+        if path.is_dir():
+            results.extend(
+                _rglob(root, path, glob_pattern or "*", find_pattern, ignore_patterns)
+            )
+        elif path.is_file():
+            reldir, relname = splitpath(relpath)
+            if fnmatch.fnmatch(relname, patternname):
+                if not find_pattern:
+                    if not patternpath or fnmatch.fnmatch(reldir, patternpath):
+                        results.append(relpath)
+                elif not findpath or reldir == findpath:
+                    if fnmatch.fnmatch(relname, findname):
+                        results.append(relpath)
+    return tuple(results)
+
+
 def get_setting(
     setting_name: str, default: Union[bool, str, None] = None
 ) -> Union[bool, str, Path, None]:
@@ -175,54 +228,10 @@ def get_files(
     if not ignore_patterns:
         ignore_patterns = DEFAULT_IGNORE_PATTERNS
 
-    def splitpath(path: str | Path):
-        if path is not None:
-            path = str(path)
-            p = path.rsplit(os.sep, maxsplit=1)
-            return (
-                p if len(p) == 2 else (p[0], "*") if path.endswith(os.sep) else ("", p[0])
-            )
-        return "", ""
-
-    findpath, findname = splitpath(find_pattern)
-
-    @cache
-    def ignorelist() -> list:
-        return [splitpath(patt) for patt in ignore_patterns]
-
-    def ignored(relpath: Path):
-        reldir, relname = splitpath(relpath)
-        return any(
-            fnmatch.fnmatch(relname, ignorefile)
-            and (not ignorepath or fnmatch.fnmatch(reldir, ignorepath))
-            for (ignorepath, ignorefile) in ignorelist()
-        )
-
-    @lru_cache(32767, False)
-    def rglob(topdir: Path, glob_pattern: Optional[str]):
-        patternpath, patternname = splitpath(glob_pattern or "*")
-        for path in topdir.iterdir():
-            relpath = path.relative_to(root)
-            if not ignored(relpath):
-                # recurse subdirs
-                if path.is_dir():
-                    yield from rglob(path, glob_pattern or "*")
-                elif path.is_file():
-                    reldir, relname = splitpath(relpath)
-                    # check that the file matches the filename pattern
-                    if fnmatch.fnmatch(relname, patternname):
-                        if not find_pattern:
-                            # if we aren't finding, match on directory part as well
-                            if not patternpath or fnmatch.fnmatch(reldir, patternpath):
-                                yield relpath
-                        # if we're finding, then ensure that the find path matches the relative one
-                        elif not findpath or reldir == findpath:
-                            # and the name is what we're looking for
-                            if fnmatch.fnmatch(relname, findname):
-                                yield relpath
+    ignore_patterns = tuple(ignore_patterns)
 
     for pattern in match_patterns:
-        yield from rglob(root, pattern)
+        yield from _rglob(root, root, pattern, find_pattern, ignore_patterns)
 
 
 class NpmFinder(FileSystemFinder):
