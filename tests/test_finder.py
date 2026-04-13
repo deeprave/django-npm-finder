@@ -63,6 +63,17 @@ def test_get_files_all(storage):
     assert all(files)
 
 
+def test_get_files_empty_ignore_patterns_disables_default_ignores(tmp_path):
+    node_modules = tmp_path / "node_modules" / "pkg"
+    node_modules.mkdir(parents=True)
+    (node_modules / "README.md").write_text("")
+    storage = FileSystemStorage(location=str(tmp_path / "node_modules"))
+
+    files = list(get_files(storage, match_patterns=["pkg/*"], ignore_patterns=[]))
+
+    assert [path.as_posix() for path in files] == ["pkg/README.md"]
+
+
 def test_get_files_with_patterns(storage):
     files_all = list(get_files(storage, match_patterns=["*.js", "*.css"]))
     assert len(files_all)
@@ -147,6 +158,50 @@ def test_get_files_scoped_package_recursive_pattern(tmp_path):
     )
     assert any("css/all.css" in path.as_posix() for path in files)
     assert any("js/all.js" in path.as_posix() for path in files)
+
+
+def test_get_files_non_recursive_path_pattern_does_not_match_nested_files(tmp_path):
+    package_root = tmp_path / "node_modules" / "bootstrap" / "dist"
+    (package_root / "js").mkdir(parents=True)
+    (package_root / "bootstrap.min.js").write_text("")
+    (package_root / "js" / "bootstrap.min.js").write_text("")
+    storage = FileSystemStorage(location=str(tmp_path / "node_modules"))
+
+    files = list(
+        get_files(
+            storage,
+            match_patterns=["bootstrap/dist/*"],
+            ignore_patterns=[],
+        )
+    )
+
+    assert [path.as_posix() for path in files] == ["bootstrap/dist/bootstrap.min.js"]
+
+
+def test_get_files_recursive_subdirectory_pattern_matches_nested_files(tmp_path):
+    package_root = tmp_path / "node_modules" / "bootstrap"
+    (package_root / "src").mkdir(parents=True)
+    (package_root / "js" / "src").mkdir(parents=True)
+    (package_root / "deep" / "nested" / "src").mkdir(parents=True)
+    (package_root / "src" / "root.js").write_text("")
+    (package_root / "js" / "src" / "nested.js").write_text("")
+    (package_root / "deep" / "nested" / "src" / "deep.js").write_text("")
+    (package_root / "deep" / "nested" / "src" / "deep.css").write_text("")
+    storage = FileSystemStorage(location=str(tmp_path / "node_modules"))
+
+    files = list(
+        get_files(
+            storage,
+            match_patterns=["bootstrap/**/src/*.js"],
+            ignore_patterns=[],
+        )
+    )
+
+    assert sorted(path.as_posix() for path in files) == [
+        "bootstrap/deep/nested/src/deep.js",
+        "bootstrap/js/src/nested.js",
+        "bootstrap/src/root.js",
+    ]
 
 
 def test_finder_list_all(npm_dir):

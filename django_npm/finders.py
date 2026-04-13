@@ -94,6 +94,48 @@ def _ignorelist(ignore_patterns: tuple[str, ...]) -> tuple[tuple[str, str], ...]
     return tuple(splitpath(patt) for patt in ignore_patterns)
 
 
+def _matches_pattern(
+    relpath_posix: str,
+    reldir: str,
+    relname: str,
+    pattern: str,
+    patternpath: str,
+    patternname: str,
+) -> bool:
+    # Preserve the original filename/directory semantics for normal globs, but
+    # treat terminal "/**" as "everything under this directory recursively".
+    if pattern.endswith("/**"):
+        prefix = pattern[:-3].rstrip("/")
+        return relpath_posix.startswith(f"{prefix}/") if prefix else True
+    if "/**/" in pattern:
+        prefix, suffix = pattern.split("/**/", maxsplit=1)
+        if prefix and not relpath_posix.startswith(f"{prefix}/"):
+            return False
+        remainder = relpath_posix[len(prefix) + 1 :] if prefix else relpath_posix
+        candidates = [remainder]
+        segments = remainder.split("/")
+        for index in range(1, len(segments)):
+            candidates.append("/".join(segments[index:]))
+        return any(fnmatch.fnmatch(candidate, suffix) for candidate in candidates)
+    return fnmatch.fnmatch(relname, patternname) and (
+        not patternpath or fnmatch.fnmatch(reldir, patternpath)
+    )
+
+
+def _matches_find_pattern(
+    relpath_posix: str,
+    relname: str,
+    pattern: str,
+    patternname: str,
+) -> bool:
+    # Preserve the historical find() behavior: configured patterns constrain the
+    # filename, while terminal "/**" remains recursive for package defaults.
+    if pattern.endswith("/**"):
+        prefix = pattern[:-3].rstrip("/")
+        return relpath_posix.startswith(f"{prefix}/") if prefix else True
+    return fnmatch.fnmatch(relname, patternname)
+
+
 def _ignored(relpath: Path, ignore_patterns: tuple[str, ...]) -> bool:
     reldir, relname = splitpath(relpath)
     return any(
@@ -127,18 +169,12 @@ def _rglob(
             relpath_posix = relpath.as_posix()
             reldir, relname = splitpath(relpath)
             if not find_pattern:
-                # Preserve filename-only matching for patterns like "*.js", but use the
-                # full relative path for path-aware patterns such as "pkg/**".
-                if "/" in pattern or "**" in pattern:
-                    matches = fnmatch.fnmatch(relpath_posix, pattern)
-                else:
-                    matches = fnmatch.fnmatch(relname, patternname) and (
-                        not patternpath or fnmatch.fnmatch(reldir, patternpath)
-                    )
-                if matches:
+                if _matches_pattern(
+                    relpath_posix, reldir, relname, pattern, patternpath, patternname
+                ):
                     results.append(relpath)
             elif (
-                fnmatch.fnmatch(relpath_posix, pattern)
+                _matches_find_pattern(relpath_posix, relname, pattern, patternname)
                 and (not findpath or reldir == findpath)
                 and fnmatch.fnmatch(relname, findname)
             ):
@@ -241,7 +277,7 @@ def get_files(
 
     root = Path(storage.base_location).resolve()
 
-    if not ignore_patterns:
+    if ignore_patterns is None:
         ignore_patterns = DEFAULT_IGNORE_PATTERNS
 
     ignore_patterns = tuple(ignore_patterns)
