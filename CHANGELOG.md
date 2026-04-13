@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.0 - TBD
+
+- Upgraded project dependencies to the latest compatible versions.
+- Fixed caching in `get_files()` so repeated lookups reuse cached filesystem traversal state across calls.
+- Pending: analyse and fix potential bug #2.
+
 ## v1.2.0 - 2025-04-21
 
 - Converted project management to uv
