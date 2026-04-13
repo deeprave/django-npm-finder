@@ -77,6 +77,13 @@ def test_get_files_with_patterns(storage):
     assert files != files_all
 
 
+def test_get_files_filename_only_pattern_matches_nested_files(storage):
+    files = list(get_files(storage, match_patterns=["*.js"]))
+    assert len(files)
+    assert any(path.as_posix() == "mocha/index.js" for path in files)
+    assert any("lib/mocha.js" in path.as_posix() for path in files)
+
+
 def test_splitpath_normalizes_windows_separators():
     assert splitpath("mocha\\*.js") == ("mocha", "*.js")
     assert splitpath("mocha\\") == ("mocha", "*")

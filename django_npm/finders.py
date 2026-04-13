@@ -112,7 +112,8 @@ def _rglob(
     ignore_patterns: tuple[str, ...],
 ) -> tuple[Path, ...]:
     results = []
-    patternpath, patternname = splitpath(glob_pattern or "*")
+    pattern = glob_pattern or "*"
+    patternpath, patternname = splitpath(pattern)
     findpath, findname = splitpath(find_pattern)
     for path in topdir.iterdir():
         relpath = path.relative_to(root)
@@ -123,14 +124,21 @@ def _rglob(
                 _rglob(root, path, glob_pattern or "*", find_pattern, ignore_patterns)
             )
         elif path.is_file():
+            relpath_posix = relpath.as_posix()
             reldir, relname = splitpath(relpath)
             if not find_pattern:
-                # For list/collectstatic behavior, match against the full relative path so
-                # patterns like "pkg/**" include nested files, not just top-level ones.
-                if fnmatch.fnmatch(relpath.as_posix(), glob_pattern or "*"):
+                # Preserve filename-only matching for patterns like "*.js", but use the
+                # full relative path for path-aware patterns such as "pkg/**".
+                if "/" in pattern or "**" in pattern:
+                    matches = fnmatch.fnmatch(relpath_posix, pattern)
+                else:
+                    matches = fnmatch.fnmatch(relname, patternname) and (
+                        not patternpath or fnmatch.fnmatch(reldir, patternpath)
+                    )
+                if matches:
                     results.append(relpath)
             elif (
-                fnmatch.fnmatch(relpath.as_posix(), glob_pattern or "*")
+                fnmatch.fnmatch(relpath_posix, pattern)
                 and (not findpath or reldir == findpath)
                 and fnmatch.fnmatch(relname, findname)
             ):
