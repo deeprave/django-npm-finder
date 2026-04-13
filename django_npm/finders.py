@@ -77,7 +77,7 @@ DEFAULT_IGNORE_PATTERNS = (
 )
 
 
-def splitpath(path: str | Path):
+def splitpath(path: str | bytes | Path | None):
     if path is not None:
         path = str(path)
         p = path.rsplit(os.sep, maxsplit=1)
