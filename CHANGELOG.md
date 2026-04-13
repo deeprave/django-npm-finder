@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.3.0 - TBD
+## v1.3.0 - 2026-04-13
 
 - Upgraded project dependencies to the latest compatible versions.
 - Fixed caching in `get_files()` so repeated lookups reuse cached filesystem traversal state across calls.
