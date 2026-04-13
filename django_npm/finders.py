@@ -124,13 +124,17 @@ def _rglob(
             )
         elif path.is_file():
             reldir, relname = splitpath(relpath)
-            if fnmatch.fnmatch(relname, patternname):
-                if not find_pattern:
-                    if not patternpath or fnmatch.fnmatch(reldir, patternpath):
-                        results.append(relpath)
-                elif not findpath or reldir == findpath:
-                    if fnmatch.fnmatch(relname, findname):
-                        results.append(relpath)
+            if not find_pattern:
+                # For list/collectstatic behavior, match against the full relative path so
+                # patterns like "pkg/**" include nested files, not just top-level ones.
+                if fnmatch.fnmatch(relpath.as_posix(), glob_pattern or "*"):
+                    results.append(relpath)
+            elif (
+                fnmatch.fnmatch(relpath.as_posix(), glob_pattern or "*")
+                and (not findpath or reldir == findpath)
+                and fnmatch.fnmatch(relname, findname)
+            ):
+                results.append(relpath)
     return tuple(results)
 
 
