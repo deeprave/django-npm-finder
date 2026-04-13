@@ -8,7 +8,13 @@ from django.core.files.storage import FileSystemStorage
 from django.test.utils import override_settings
 
 from django_npm import finders
-from django_npm.finders import NpmFinder, get_files, npm_install
+from django_npm.finders import (
+    NpmFinder,
+    flatten_patterns,
+    get_files,
+    npm_install,
+    splitpath,
+)
 
 from .util import configure_settings
 
@@ -69,6 +75,18 @@ def test_get_files_with_patterns(storage):
     assert all(Path(path).suffix in (".js", ".css") for path in files)
 
     assert files != files_all
+
+
+def test_splitpath_normalizes_windows_separators():
+    assert splitpath("mocha\\*.js") == ("mocha", "*.js")
+    assert splitpath("mocha\\") == ("mocha", "*")
+
+
+def test_flatten_patterns_uses_posix_paths():
+    assert flatten_patterns({"mocha": ["*.js", "lib/*.css"]}) == [
+        "mocha/*.js",
+        "mocha/lib/*.css",
+    ]
 
 
 def test_get_files_reuses_cached_directory_walk(storage, monkeypatch):

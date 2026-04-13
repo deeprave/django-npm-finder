@@ -79,9 +79,13 @@ DEFAULT_IGNORE_PATTERNS = (
 
 def splitpath(path: str | bytes | Path | None):
     if path is not None:
-        path = str(path)
-        p = path.rsplit(os.sep, maxsplit=1)
-        return p if len(p) == 2 else (p[0], "*") if path.endswith(os.sep) else ("", p[0])
+        path = str(path).replace("\\", "/")
+        if path.endswith("/"):
+            return path[:-1], "*"
+        p = path.rsplit("/", maxsplit=1)
+        return (
+            tuple(p) if len(p) == 2 else (p[0], "*") if path.endswith("/") else ("", p[0])
+        )
     return "", ""
 
 
@@ -206,7 +210,7 @@ def flatten_patterns(patterns: Dict[str, Iterable[str]]) -> List[str]:
     if patterns is None:
         return []
     return [
-        os.path.join(module, module_pattern)
+        f"{str(module).strip('/')}/{str(module_pattern).lstrip('/')}"
         for module, module_patterns in patterns.items()
         for module_pattern in module_patterns
     ]
