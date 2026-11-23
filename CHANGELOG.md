@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.4.0 - 2026-11-24
+
+- **Breaking:** now requires Python 3.13 or later (Python 3.10 - 3.12 are no longer supported). Python 3.13, 3.14 and 3.15 are tested.
+- **Breaking:** now requires Django 5.2.17 or later (previously Django 4.2 or later).
+
 ## v1.3.0 - 2026-04-13
 
 - Upgraded project dependencies to the latest compatible versions.

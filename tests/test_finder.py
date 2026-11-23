@@ -36,7 +36,7 @@ def setup_npm_dir():
             """{
     "name": "test",
     "dependencies": {
-        "mocha": "*"
+        "dayjs": "1.11.23"
     }
 }"""
         )
@@ -80,7 +80,7 @@ def test_get_files_with_patterns(storage):
     assert all(path for path in files_all)
     assert all(Path(path).suffix in (".js", ".css") for path in files_all)
 
-    files = list(get_files(storage, match_patterns=["mocha/*.js", "mocha/*.css"]))
+    files = list(get_files(storage, match_patterns=["dayjs/*.js", "dayjs/*.css"]))
     assert len(files)
     assert all(path for path in files)
     assert all(Path(path).suffix in (".js", ".css") for path in files)
@@ -91,19 +91,19 @@ def test_get_files_with_patterns(storage):
 def test_get_files_filename_only_pattern_matches_nested_files(storage):
     files = list(get_files(storage, match_patterns=["*.js"]))
     assert len(files)
-    assert any(path.as_posix() == "mocha/index.js" for path in files)
-    assert any("lib/mocha.js" in path.as_posix() for path in files)
+    assert any(path.as_posix() == "dayjs/dayjs.min.js" for path in files)
+    assert any("plugin/utc.js" in path.as_posix() for path in files)
 
 
 def test_splitpath_normalizes_windows_separators():
-    assert splitpath("mocha\\*.js") == ("mocha", "*.js")
-    assert splitpath("mocha\\") == ("mocha", "*")
+    assert splitpath("dayjs\\*.js") == ("dayjs", "*.js")
+    assert splitpath("dayjs\\") == ("dayjs", "*")
 
 
 def test_flatten_patterns_uses_posix_paths():
-    assert flatten_patterns({"mocha": ["*.js", "lib/*.css"]}) == [
-        "mocha/*.js",
-        "mocha/lib/*.css",
+    assert flatten_patterns({"dayjs": ["*.js", "lib/*.css"]}) == [
+        "dayjs/*.js",
+        "dayjs/lib/*.css",
     ]
 
 
@@ -127,9 +127,9 @@ def test_get_files_reuses_cached_directory_walk(storage, monkeypatch):
 
     monkeypatch.setattr(Path, "iterdir", counting_iterdir)
 
-    first = list(get_files(storage, match_patterns=["mocha/*.js"]))
+    first = list(get_files(storage, match_patterns=["dayjs/*.js"]))
     first_counts = dict(calls)
-    second = list(get_files(storage, match_patterns=["mocha/*.js"]))
+    second = list(get_files(storage, match_patterns=["dayjs/*.js"]))
 
     assert first == second
     assert first_counts
@@ -215,7 +215,7 @@ def test_finder_list_all(npm_dir):
 
 
 def test_finder_list_in_module(npm_dir):
-    with override_settings(NPM_FILE_PATTERNS={"mocha": ["**/*"]}):
+    with override_settings(NPM_FILE_PATTERNS={"dayjs": ["**/*"]}):
         f = NpmFinder()
         # using specific patterns
         results = list(f.list())
@@ -228,7 +228,7 @@ def test_finder_list_in_module(npm_dir):
 def test_finder_list_files_in_module(npm_dir):
     with override_settings(
         NPM_FILE_PATTERNS={
-            "mocha": [
+            "dayjs": [
                 "**/*.js",
                 "**/*.css",
             ]
@@ -244,41 +244,41 @@ def test_finder_list_files_in_module(npm_dir):
 
 def test_finder_find(npm_dir):
     f = NpmFinder()
-    file = f.find("mocha/index.js")
+    file = f.find("dayjs/dayjs.min.js")
     assert file
 
 
 def test_finder_in_subdirectory(npm_dir):
     with override_settings(
-        NPM_STATIC_FILES_PREFIX="lib", NPM_FILE_PATTERNS={"mocha": ["*"]}
+        NPM_STATIC_FILES_PREFIX="lib", NPM_FILE_PATTERNS={"dayjs": ["*"]}
     ):
         f = NpmFinder()
-        file = f.find("lib/mocha/index.js")
+        file = f.find("lib/dayjs/dayjs.min.js")
         assert file
 
 
 def test_finder_with_patterns_in_subdirectory(npm_dir):
     with override_settings(
-        NPM_STATIC_FILES_PREFIX="lib", NPM_FILE_PATTERNS={"mocha": ["*"]}
+        NPM_STATIC_FILES_PREFIX="lib", NPM_FILE_PATTERNS={"dayjs": ["*"]}
     ):
         f = NpmFinder()
-        file = f.find("lib/mocha/index.js")
+        file = f.find("lib/dayjs/dayjs.min.js")
         assert file
 
 
 def test_finder_with_patterns_in_directory_component(npm_dir):
     with override_settings(
-        NPM_STATIC_FILES_PREFIX="lib", NPM_FILE_PATTERNS={"mocha": ["*.js"]}
+        NPM_STATIC_FILES_PREFIX="lib", NPM_FILE_PATTERNS={"dayjs": ["*.js"]}
     ):
         f = NpmFinder()
-        file = f.find("lib/mocha/lib/mocha.js")
+        file = f.find("lib/dayjs/plugin/utc.js")
         assert file
 
 
 def test_no_matching_paths_returns_empty_list(npm_dir):
     with override_settings(NPM_FILE_PATTERNS={"foo": ["bar"]}):
         f = NpmFinder()
-        result = f.find("mocha/index.js")
+        result = f.find("dayjs/dayjs.min.js")
         assert result == []
 
 
