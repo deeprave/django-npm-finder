@@ -17,6 +17,10 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.15", "3.14", "3.13"]
+        # "locked" is the Django in uv.lock (the latest series, which is where security releases
+        # will land); the other entry floats to the highest release of the oldest supported
+        # major version
+        django: ["locked", "Django>=5.2,<6.0"]
 
     steps:
       - name: Check out the commit
@@ -32,7 +36,14 @@ jobs:
         run: uv sync --locked
 
       - name: Run the tests
-        run: uv run pytest
+        env:
+          DJANGO: ${{ matrix.django }}
+        run: |
+          if [ "${DJANGO}" = "locked" ]; then
+            uv run pytest
+          else
+            uv run --with "${DJANGO}" pytest
+          fi
 
       - name: Build package
         run: uv build

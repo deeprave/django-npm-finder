@@ -4,6 +4,10 @@
 
 - **Breaking:** now requires Python 3.13 or later (Python 3.10 - 3.12 are no longer supported). Python 3.13, 3.14 and 3.15 are tested.
 - **Breaking:** now requires Django 5.2.17 or later (previously Django 4.2 or later).
+- `manage.py npm_install` now fails with an error when the package manager exits unsuccessfully or cannot be run, instead of reporting success.
+- The package manager now keeps the environment variables it needs to work (`HOME`, proxy and certificate settings, `npm_config_*`, `PNPM_*`, `YARN_*` and similar), so its cache and configuration are found. The rest of the environment, such as Django secrets, is still not passed to it.
+- Django's system checks now warn (`django_npm.W001`) when the `node_modules` directory does not exist.
+- An unreadable or malformed `package.json` is now logged as a warning instead of silently falling back to matching every package.
 
 ## v1.3.0 - 2026-04-13
 

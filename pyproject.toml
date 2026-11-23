@@ -6,7 +6,8 @@ authors = [
     {name = "David Nugent", email = "davidn@uniquode.io"},
     {name = "Kevin McCarthy", email = "e@kevinmccarthy.org"},
 ]
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.13,<4.0"
 keywords = ["django", "npm", "finder", "staticfiles"]
@@ -14,7 +15,10 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Build Tools",
-    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.1",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",

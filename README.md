@@ -115,4 +115,9 @@ npm_install()
 ```
 
 The advantage of using `npm_install` is that it will run the package manager configured in
-your Django settings.
+your Django settings. `manage.py npm_install` exits with an error if the package manager fails.
+
+The package manager is run with a restricted environment: `PATH`, `HOME` (or the Windows
+equivalents), proxy and certificate settings, and `npm_config_*`, `PNPM_*`, `YARN_*`, `NODE_*`
+and `COREPACK_*` variables are passed through. Other variables, such as your Django secrets,
+are not, because package install scripts are third-party code.

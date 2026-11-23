@@ -4,6 +4,8 @@
 def configure_settings():
     from django.conf import settings
 
+    if settings.configured:
+        return
     settings.configure(
         DEBUG=True,
         CACHES={
