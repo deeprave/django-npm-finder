@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-import contextlib
 import fnmatch
-import os
 import json
+import logging
+import os
 import subprocess
 from functools import cache, lru_cache
 from pathlib import Path
@@ -10,9 +10,12 @@ from typing import List, Dict, Union, Iterable, Optional
 
 from django.conf import settings
 from django.contrib.staticfiles.finders import FileSystemFinder
+from django.core.checks import Warning
 from django.core.files.storage import FileSystemStorage
 
 NPM_EXECUTABLE_PATH = "NPM_EXECUTABLE_PATH"
+logger = logging.getLogger(__name__)
+
 NPM_ROOT_PATH = "NPM_ROOT_PATH"
 NPM_STATIC_FILES_PREFIX = "NPM_STATIC_FILES_PREFIX"
 NPM_FILE_PATTERNS = "NPM_FILE_PATTERNS"
@@ -206,6 +209,72 @@ def get_npm_root_path() -> Path:
     return Path(base_dir).resolve()
 
 
+# The package manager runs third-party install scripts, so it is not given the whole
+# environment (which may hold Django secrets). It does need enough to locate itself, its
+# cache and configuration, proxies and certificates, and on Windows the system root.
+NPM_ENV_NAMES = frozenset(
+    {
+        "PATH",
+        "PATHEXT",
+        "HOME",
+        "USER",
+        "LOGNAME",
+        "SHELL",
+        "LANG",
+        "TERM",
+        "CI",
+        "TMP",
+        "TEMP",
+        "TMPDIR",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "PROGRAMDATA",
+        "PROGRAMFILES",
+        "PROGRAMFILES(X86)",
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "WINDIR",
+        "COMSPEC",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "NO_PROXY",
+        "ALL_PROXY",
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+        "REQUESTS_CA_BUNDLE",
+    }
+)
+NPM_ENV_PREFIXES = (
+    "NPM_CONFIG_",
+    "PNPM_",
+    "YARN_",
+    "NODE_",
+    "COREPACK_",
+    "XDG_",
+    "LC_",
+)
+
+
+def get_npm_environment(environ=None) -> Dict[str, str]:
+    """
+    Build the environment passed to the package manager: a fixed allowlist of the
+    variables npm, pnpm and yarn need to work, rather than everything in os.environ.
+    Names are matched case-insensitively, as environment variables are on Windows.
+    :param environ: mapping to filter, default os.environ
+    :return: filtered environment
+    """
+    if environ is None:
+        environ = os.environ
+    return {
+        name: value
+        for name, value in environ.items()
+        if name.upper() in NPM_ENV_NAMES or name.upper().startswith(NPM_ENV_PREFIXES)
+    }
+
+
 def npm_install():
     """
     Run npm install in the node_modules directory.
@@ -223,9 +292,9 @@ def npm_install():
 
     command = [str(npm), "install", prefix, get_npm_root_path().as_posix()]
     print(" ".join(command))
-    proc = subprocess.Popen(
+    proc = subprocess.Popen(  # nosemgrep: command is the configured package manager, no shell
         command,
-        env={"PATH": os.environ.get("PATH")},
+        env=get_npm_environment(),
     )
     return proc.wait()
 
@@ -239,13 +308,16 @@ def get_package_patterns(node_modules_root: Union[str, Path]) -> Dict[str, List[
     """
     package_json = Path(node_modules_root) / "package.json"
     packages = {"*": ["*"]}
-    with contextlib.suppress(IOError, json.JSONDecodeError):
+    try:
         with package_json.open() as f:
             pkg_json = json.load(f)
-            with package_json.open() as f:
-                pkg_json = json.load(f)
-                if "dependencies" in pkg_json:
-                    packages = {pkg: ["**"] for pkg in pkg_json["dependencies"]}
+    except FileNotFoundError:
+        logger.debug("%s not found, matching all packages", package_json)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Could not read %s, matching all packages: %s", package_json, exc)
+    else:
+        if "dependencies" in pkg_json:
+            packages = {pkg: ["**"] for pkg in pkg_json["dependencies"]}
     return packages
 
 
@@ -305,6 +377,19 @@ class NpmFinder(FileSystemFinder):
         filesystem_storage.prefix = self.locations[0][0]
         self.storages = {self.locations[0][1]: filesystem_storage}
         self.cached_list = None
+
+    def check(self, **kwargs):
+        errors = super().check(**kwargs)
+        node_modules = self.locations[0][1]
+        if not Path(node_modules).is_dir():
+            errors.append(
+                Warning(
+                    f"The node_modules directory {node_modules} does not exist.",
+                    hint="Run `manage.py npm_install`, or check NPM_ROOT_PATH.",
+                    id="django_npm.W001",
+                )
+            )
+        return errors
 
     # noinspection PyShadowingBuiltins
     def find(self, path, **_kwargs):
