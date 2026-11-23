@@ -364,8 +364,11 @@ class NpmFinder(FileSystemFinder):
         self.node_modules_path = get_npm_root_path()
         self.destination = get_setting(NPM_STATIC_FILES_PREFIX, "")
         self.cache_enabled = get_setting(NPM_FINDER_USE_CACHE, True)
+        # an explicit empty list means "ignore nothing"; only an unset (or None) setting
+        # selects the defaults
+        ignore_patterns = get_setting(NPM_IGNORE_PATTERNS, None)
         self.ignore_patterns = (
-            get_setting(NPM_IGNORE_PATTERNS, None) or DEFAULT_IGNORE_PATTERNS
+            DEFAULT_IGNORE_PATTERNS if ignore_patterns is None else tuple(ignore_patterns)
         )
         patterns = get_setting(NPM_FILE_PATTERNS, None) or get_package_patterns(
             self.node_modules_path

@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.0.1 - 2026-11-24
+
+- `NPM_IGNORE_PATTERNS = []` now disables all ignore patterns, as documented, instead of silently using the defaults.
+- Corrected the README: the `NPM_STATIC_FILES_PREFIX` and `NPM_FILE_PATTERNS` examples, the `NPM_EXECUTABLE_PATH` description, the upstream project link, and the packaging tool (uv, not poetry).
+
 ## v2.0.0 - 2026-11-24
 
 - **Breaking:** now requires Python 3.13 or later (Python 3.10 - 3.12 are no longer supported). Python 3.13, 3.14 and 3.15 are tested.

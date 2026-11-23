@@ -1,6 +1,6 @@
 [project]
 name = "django-npm-finder"
-version = "2.0.0"
+version = "2.0.1"
 description = "A django staticfiles finder that supporting npm/yarn/pnpm"
 authors = [
     {name = "David Nugent", email = "davidn@uniquode.io"},
