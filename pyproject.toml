@@ -1,6 +1,6 @@
 [project]
 name = "django-npm-finder"
-version = "1.3.0"
+version = "1.4.0"
 description = "A django staticfiles finder that supporting npm/yarn/pnpm"
 authors = [
     {name = "David Nugent", email = "davidn@uniquode.io"},
@@ -8,19 +8,19 @@ authors = [
 ]
 license = {text = "MIT"}
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.13,<4.0"
 keywords = ["django", "npm", "finder", "staticfiles"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Build Tools",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dependencies = [
-    "Django>=4.2",
+    "Django>=5.2.17",
 ]
 
 [project.urls]
@@ -34,12 +34,14 @@ Documentation = "https://github.com/deeprave/django-npm-finder"
 [dependency-groups]
 dev = [
     "ruff>=0.5.2",
-    "pytest>=8.2.0",
+    "pytest==9.2.0",
 ]
 
-[build-system]
-requires = ["flit-core"]
-build-backend = "flit_core.buildapi"
 
-[tool.flit.module]
-name = "django_npm"
+[build-system]
+requires = ["uv_build>=0.8,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "django_npm"
+module-root = ""

@@ -1,0 +1,161 @@
+name: Publish
+
+# Publishes the version in pyproject.toml to PyPI (trusted publishing, no token) and creates
+# the matching GitHub release. It only ever runs when you start it by hand:
+#
+#   Actions > Publish > Run workflow (branch: main)
+#
+#   check ──> build ──> publish ──> release
+#
+# `check` stops the run, with an error, unless the tests have passed for this exact commit and
+# the tag v<version> does not exist yet. Each version is released once.
+# To release, bump `version` in pyproject.toml, merge to main, then run this workflow.
+#
+# There is no retry. If a run fails after `check`, do not re-run it: whatever it managed to
+# upload stays where it is, so bump `version` and release again.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check version and tests
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read       # to look up the Test and Build CI runs for this commit
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    env:
+      SHA: ${{ github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Check that the tests passed for this commit
+        run: |
+          passed=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/pytest.yml/runs?head_sha=${SHA}&event=push&status=success" \
+            --jq '.total_count')
+          if [ "${passed}" -lt 1 ]; then
+            echo "::error::The Test and Build CI workflow has not passed for ${SHA} on main"
+            exit 1
+          fi
+
+      - name: Read version and check for an existing tag
+        id: version
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          tag="v${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+          # authoritative check against the remote, not the local clone
+          if [ -n "$(git ls-remote --tags origin "refs/tags/${tag}")" ]; then
+            echo "::error::Tag ${tag} already exists; bump the version in pyproject.toml"
+            exit 1
+          fi
+
+  build:
+    name: Build distributions
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Build package
+        run: uv build
+
+      - name: Check the artifacts carry the expected version
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          ls -l dist
+          test "$(ls dist | wc -l)" -eq 2
+          for f in dist/*; do
+            case "$(basename "$f")" in
+              *"-${VERSION}"[-.]*) ;;
+              *) echo "::error::${f} does not match version ${VERSION}"; exit 1 ;;
+            esac
+          done
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write     # trusted publishing; nothing else needs it
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Publish to PyPI via OIDC trusted publishing
+        run: uv publish --trusted-publishing always dist/*
+
+  release:
+    name: GitHub release
+    needs: [check, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.check.outputs.version }}
+      TAG: ${{ needs.check.outputs.tag }}
+      SHA: ${{ github.sha }}
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Download distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create tag and release
+        run: |
+          # this version's section of the changelog, if there is one
+          awk -v v="${VERSION}" '
+            /^## / { if (found) exit; found = ($2 == "v" v); next }
+            found
+          ' CHANGELOG.md > notes.md || true
+          if [ -s notes.md ]; then
+            notes=(--notes-file notes.md)
+          else
+            notes=(--generate-notes)
+          fi
+          # fails if the tag appeared in the meantime, rather than moving it
+          gh release create "${TAG}" dist/* --target "${SHA}" --title "${TAG}" "${notes[@]}"
