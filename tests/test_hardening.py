@@ -145,3 +145,48 @@ def test_check_is_clean_when_node_modules_exists(tmp_path):
     (tmp_path / "node_modules").mkdir()
     with override_settings(NPM_ROOT_PATH=str(tmp_path)):
         assert NpmFinder().check() == []
+
+
+@pytest.fixture
+def package_with_readme(tmp_path):
+    package = tmp_path / "node_modules" / "pkg"
+    package.mkdir(parents=True)
+    (package / "index.js").write_text("")
+    (package / "README.md").write_text("")
+    (tmp_path / "package.json").write_text('{"dependencies": {"pkg": "1"}}')
+    return tmp_path
+
+
+def _listed(finder):
+    return sorted(path.as_posix() for path, _storage in finder.list([]))
+
+
+def test_ignore_patterns_default_when_unset(package_with_readme):
+    with override_settings(NPM_ROOT_PATH=str(package_with_readme)):
+        finder = NpmFinder()
+        assert _listed(finder) == ["pkg/index.js"]
+        assert finder.find("pkg/README.md") == []
+
+
+@pytest.mark.parametrize("empty", [[], ()])
+def test_ignore_patterns_empty_disables_ignoring(package_with_readme, empty):
+    with override_settings(
+        NPM_ROOT_PATH=str(package_with_readme), NPM_IGNORE_PATTERNS=empty
+    ):
+        finder = NpmFinder()
+        assert _listed(finder) == ["pkg/README.md", "pkg/index.js"]
+        assert finder.find("pkg/README.md")
+
+
+def test_ignore_patterns_none_uses_defaults(package_with_readme):
+    with override_settings(
+        NPM_ROOT_PATH=str(package_with_readme), NPM_IGNORE_PATTERNS=None
+    ):
+        assert _listed(NpmFinder()) == ["pkg/index.js"]
+
+
+def test_ignore_patterns_custom_replaces_defaults(package_with_readme):
+    with override_settings(
+        NPM_ROOT_PATH=str(package_with_readme), NPM_IGNORE_PATTERNS=["*.js"]
+    ):
+        assert _listed(NpmFinder()) == ["pkg/README.md"]
